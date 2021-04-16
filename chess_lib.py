@@ -61,9 +61,13 @@ def statistics_eco(df):
     return w_b
 
 def create_X(df_train, df_test, for_test=False):
+    '''
+    create X datasets for train and test. If for_test = True it creates X_test
+    For test dataset I concatenate two sets of data (train and test) because for test data we need data for previous period of time,
+    '''
     X = pd.DataFrame()
     if for_test:
-        df = df_test.append(df_train, ignore_index=True)
+        df = df_test.append(df_train, ignore_index=True) 
     else:
         df = df_train #for_test var defines whether we prepare train data or test data
 
@@ -142,10 +146,11 @@ def create_X(df_train, df_test, for_test=False):
 
 def create_series_y(df):
     '''
-    create target variable y as pandas Series
+    Create target variable y as pandas Series. First, I create my_color and result features. Further,
+    I calculate my_result the following way: if i win - my_result = 1, if i lost or draw my_result = 0
     '''
     target = pd.DataFrame()
-    #вначале создаю столбец каким цветом я играю
+    #my_color and result are for helping to create my_result feature
     target['my_color'] = df.White.replace('shahmatpatblog', 1)
     target.loc[target.my_color != 1, 'my_color'] = 0
 
@@ -157,6 +162,9 @@ def create_series_y(df):
     return target.my_result
 
 def plot_auc_roc(y_true, y_pr):
+    '''
+    plot graph of AUC ROC metric with calculating of its value
+    '''
     fpr, tpr, thresholds = roc_curve(y_true, y_pr[:,1])
     roc_auc= auc(fpr, tpr)
     plt.figure(figsize=(8, 6))
