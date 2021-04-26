@@ -30,10 +30,9 @@ def count_rate(winned, played):
 
 def create_my_result(df):
 	'''
-	create dataframe with my_color and my_result features
+	создание целевой переменной my_result, а также переменной y_color (цвет игры)
 	'''
 	target = pd.DataFrame()
-	#вначале создаю столбец каким цветом я играю
 	target['my_color'] = df.White.replace('shahmatpatblog', 1)
 	target.loc[target.my_color != 1, 'my_color'] = 0
 	target['my_color'] = target['my_color'].astype('int32')
@@ -47,6 +46,9 @@ def create_my_result(df):
 	return target.drop(columns=['result'])
 
 def plot_auc_roc(y_true, y_pr):
+	'''
+	показать график ROC-кривой и посчитать площадь под ней
+	'''
 	fpr, tpr, thresholds = roc_curve(y_true, y_pr[:,1])
 	roc_auc= auc(fpr, tpr)
 	plt.figure(figsize=(8, 6))
@@ -63,6 +65,9 @@ def plot_auc_roc(y_true, y_pr):
 	plt.show()
 
 def fit_model(X, y, clf, GridSearch_params):
+	'''
+	найти наилучшую модель с помощью GridSearchCV и вернуть её
+	'''
 	grid_search_cv = GridSearchCV(clf, GridSearch_params, cv=3, n_jobs=-1)
 	grid_search_cv.fit(X, y)
 	print('Найден лучший классификатор с параметрами {0} и score = {1}'.format(grid_search_cv.best_params_, grid_search_cv.best_score_))
