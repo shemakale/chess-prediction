@@ -116,7 +116,7 @@ def get_last_7days_wins(df_7days):
 	return df_7days.my_result.sum()
 
 
-def get_last_7days_win_rate(df_7days):
+def get_last_7days_win_ratio(df_7days):
 	if df_7days.my_result.sum():
 		answer = np.divide(get_last_7days_wins(df_7days), get_last_7days_games(df_7days))
 		return round(answer, 3)
@@ -132,7 +132,7 @@ def get_today_wins(today_games):
 	return today_games.my_result.sum()
 
 
-def get_today_win_rate(today_games):
+def get_today_win_ratio(today_games):
 	if today_games.my_result.sum():
 		answer = np.divide(get_today_wins(today_games), get_today_games(today_games))
 		return round(answer, 3)
@@ -166,8 +166,8 @@ def make_numeric_features(input_data):
 	num_features.append(get_rating_diff(input_data))
 	num_features.append( get_last_7days_games(df_7days))
 	num_features.append(get_last_7days_wins(df_7days))
-	num_features.append( get_last_7days_win_rate(df_7days))
+	num_features.append( get_last_7days_win_ratio(df_7days))
 	num_features.append(get_today_games(df_today))
 	num_features.append(get_today_wins(df_today))
-	num_features.append(get_today_win_rate(df_today))
+	num_features.append(get_today_win_ratio(df_today))
 	return np.reshape(num_features, (1, len(num_features)))
