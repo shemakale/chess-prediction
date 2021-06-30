@@ -72,3 +72,6 @@ def fit_model(X, y, clf, GridSearch_params):
 	grid_search_cv.fit(X, y)
 	print('Найден лучший классификатор с параметрами {0} и score = {1}'.format(grid_search_cv.best_params_, grid_search_cv.best_score_))
 	return grid_search_cv.best_estimator_
+
+def nichego():
+	pass
