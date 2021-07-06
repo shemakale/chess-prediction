@@ -2,8 +2,10 @@ import re
 import pandas as pd
 import numpy as np
 import datetime
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
 import pickle
 
 
@@ -11,9 +13,10 @@ class TrainingDataFrame:
 	time_controls = {'bullet': ['60+0', '60+1', '120+0', '120+1'],
 					'blitz': ['180+0', '180+1', '180+2', '300+0', '300+2', '300+3']}
 	non_tournament_events = ['Rated Blitz game', 'Rated Bullet game', 'Casual Blitz game']
+
 	def __init__(self, file_path):
 		self.file_path = file_path
-		self.all_games = self.create_df_from_pgn(file_path)
+		self.raw_df = self.create_df_from_pgn(file_path)
 
 
 	def create_df_from_pgn(self, file_path):
@@ -59,7 +62,7 @@ class TrainingDataFrame:
 
 
 	def get_my_result(self, df):
-		''' 0 - I lost, 1 - I won '''
+		''' Create my_result. 0 - I lost, 1 - I won. This is target variable (y)! '''
 		my_result = pd.Series(data=df['Result'].map({'1-0': 1, '0-1': 0, '1/2-1/2': 0.5}))
 		my_result = my_result + self.get_my_color(df)
 		my_result = my_result.replace([0.0, 2.0], 'win').replace([0.5, 1.0, 1.5], 'not_win')
@@ -122,9 +125,6 @@ class TrainingDataFrame:
 		its_weekend = its_weekend.replace([1, 2, 3, 4, 5], 0).replace([6, 7], 1).astype('uint8')
 		return its_weekend
 
-	def get_7days_stats(self, df):
-		return last_7days_statistics(df)
-
 
 	def results_and_dates_df(self, df):
 		''' Creates dataframe with 3 columns: Date_Time, date_, my_result.
@@ -136,7 +136,7 @@ class TrainingDataFrame:
 		return results_and_dates
 
 
-	def create_stats_df_7days(self, df):
+	def get_7days_stats(self, df):
 		''' Creates dataframe with last 7 days statistics. 
 		It is for creating following features: last_7days_games, last_7days_wins, last_7days_win_ratio'''
 		sorted_df = self.results_and_dates_df(df).sort_values(by='Date_Time').set_index('date_')
@@ -152,189 +152,112 @@ class TrainingDataFrame:
 		return last_7d_stats
 
 
+	def get_this_day_stats(self, df):
+		''' Creates dataframe with "day of game" statistics. 
+		It is for creating following features: count_today_games, win_today_games, this_day_win_ratio'''
+		dd = self.results_and_dates_df(df)
+		list_count_today_games, list_count_today_wins= [], []
+		for i, row in dd.iterrows():
+			# Series with games for every day:
+			condition_game = (dd['Date_Time'] < row[0]) & (dd['date_'] == row[1])
+			subseries_games = dd[['Date_Time']].loc[condition_game]
+			# Series with winned games for every day:
+			condition_win = (dd['Date_Time'] < row[0]) & (dd['date_'] == row[1]) & (dd['my_result'] == 1)
+			subseries_wins = dd[['Date_Time']].loc[condition_win]
+			list_count_today_games.append(subseries_games.shape[0]) #count games for every day and put into a list
+			list_count_today_wins.append(subseries_wins.shape[0]) #count wind for every day and put into an another list
+		this_day_stats = pd.DataFrame(data=np.array((list_count_today_games, list_count_today_wins)).T,
+									columns=['count_today_games', 'win_today_games']) #dataframe with stats for every day
+		this_day_stats['this_day_win_ratio'] = self.calculate_ratio(this_day_stats['win_today_games'], 
+																	this_day_stats['count_today_games'])
+		return this_day_stats
+
+
 	def create_training_df(self):
-		return self.create_stats_df_7days(self.all_games)
+		''' Merges all features in one dataframe '''
+		full_df = pd.DataFrame() #dataframe for training
+		full_df['date_'] = self.get_date(self.raw_df)
+		full_df['my_result'] = self.get_my_result(self.raw_df)
+		full_df['my_color'] = self.get_my_color(self.raw_df)
+		full_df['event'] = self.get_event(self.raw_df)
+		full_df['my_rating'] = self.get_my_rating(self.raw_df)
+		full_df['rating_diff'] = self.get_rating_diff(self.raw_df)
+		full_df['time_control'] = self.get_time_control(self.raw_df)
+		full_df = full_df.merge(right=self.get_parts_of_day(self.raw_df), left_index=True, right_index=True, how='inner')
+		full_df['its_weekend'] = self.get_its_weekend(self.raw_df)
+		full_df['rating_diff'] = self.get_rating_diff(self.raw_df)
+		full_df['rating_diff'] = self.get_rating_diff(self.raw_df)
+		full_df = full_df.merge(right=self.get_7days_stats(self.raw_df), on='date_', how='inner')
+		full_df = full_df.merge(right=self.get_this_day_stats(self.raw_df), left_index=True, right_index=True, how='inner')
+		full_df.drop(columns=['date_'], inplace=True)
+		return full_df
 
 
-aas = TrainingDataFrame('lichess_shahmatpatblog_2021-04-20.pgn')
-#games = aas.create_df_from_pgn('lichess_shahmatpatblog_2021-04-20.pgn')
-print(aas.create_training_df())
+
+class FittedLogit:
+	'''  '''
+	def __init__(self, df, scale=True):
+		if scale:
+			self.df = self.scale_df(df)
+		else:
+			self.df = df
+		self.X, self.y = self.split_X_y(self.df)
+		self.prediction_accuracy, self.c_parameter = self.find_best_clf(self.X, self.y)
+
+	def scale_df(self, df):
+		''' Get dataframe with scaled features. Scaling is not applied for boolean features (uint8 type) '''
+		features_for_scaling = df.select_dtypes(exclude='uint8')
+		scaler = StandardScaler()
+		scaled_arr = scaler.fit_transform(features_for_scaling)
+		with open('scaler.pkl', 'wb') as f:
+			pickle.dump(scaler, f)
+		scaled_df = pd.DataFrame(data=scaled_arr, columns=features_for_scaling.columns)
+		resulted_df = df.drop(columns=features_for_scaling.columns)
+		resulted_df = pd.merge(left=resulted_df, right=scaled_df, left_index=True, right_index=True, how='inner')
+		return resulted_df
+
+
+	def split_X_y(self, df):
+		'''  '''
+		X = df.drop(columns='my_result')
+		y = df['my_result']
+		return X, y
+
+
+	def find_best_clf(self, X, y):
+		'''  '''
+		X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, shuffle=True)
+		kf = KFold(n_splits=5, random_state=28, shuffle=True)
+		c_values = np.power(10, range(-4, 5), dtype = np.float) #C-parameter values of Logit
+		accuracy_train, accuracy_test = [], []
+		for c in c_values:
+			clf = LogisticRegression(C=c, random_state=28)
+			cross_val_sc = np.mean(cross_val_score(clf, X_train, y_train, cv=kf))
+			clf.fit(X_train, y_train)
+			accuracy_train.append(cross_val_sc)
+			accuracy_test.append(accuracy_score(y_test, clf.predict(X_test)))
+		max_test_score = round(max(accuracy_test), 3)
+		best_C = c_values[accuracy_test.index(max(accuracy_test))]	
+		return max_test_score, best_C
+
+
+	def fit_clf(self):
+		'''  '''
+		clf = LogisticRegression(C=self.c_parameter, random_state=28)
+		clf.fit(self.X, self.y)
+		with open('clf.pkl', 'wb') as f:
+			pickle.dump(clf, f)
+			return clf
+		
 
 
 
+data = TrainingDataFrame('lichess_shahmatpatblog_2021-04-20.pgn')
+not_scaled_df = data.create_training_df()
+clf = FittedLogit(not_scaled_df)
+print(clf.fit_clf())
+print(clf.c_parameter)
+print(clf.prediction_accuracy)
+#print(clf.__dict__)
 
 
-
-#all_games = create_df_from_pgn('lichess_shahmatpatblog_2021-04-20.pgn')
-#print(get_rating_diff(all_games))
-#print(pd.DataFrame(data=np.array([get_datetime(all_games), get_date(all_games)]).T))
-#print(pd.merge(get_datetime(all_games), get_date(all_games), left_index=True, right_index=True))
-
-
-
-def create_X(df_train, df_test, for_test=False):
-	X = pd.DataFrame()
-	if for_test:
-		df = df_test.append(df_train, ignore_index=True)
-	else:
-		df = df_train #for_test var defines whether we prepare train data or test data
-
-	#Date_Time, date_
-	X['Date_Time'] = df['UTCDate'] + ' ' + df['UTCTime']
-	X[['Date_Time']] = X[['Date_Time']].applymap(lambda x: datetime.datetime.strptime(x, '%Y.%m.%d %H:%M:%S'))
-	X[['date_']] = df[['UTCDate']].applymap(lambda x: datetime.datetime.strptime(x, '%Y.%m.%d'))
-
-	#my_result
-	X['my_result'] = create_series_y(df)
-
-	#my_color
-	X['my_color'] = df.White.replace('shahmatpatblog', 1)
-	X.loc[X.my_color != 1, 'my_color'] = 0
-	X['my_color'] = X['my_color'].astype('int64')
-
-	#elo_diff
-	X['elo_diff'] = df['WhiteElo'].astype('int64') - df['BlackElo'].astype('int64')
-	X['elo_diff'] = X['elo_diff'].where(X['my_color'] == 1, -X['elo_diff'])
-
-	#event
-	X['event'] = df.Event.replace(['Rated Blitz game', 'Rated Bullet game', 'Casual Blitz game'], 0)
-	X.loc[X.event != 0, 'event'] = 1
-	X['event'] = X['event'].astype('int64')
-
-	#time_control (0 - bullet, 1 - blitz)
-	X['time_control'] = df.TimeControl.replace(['60+0', '60+1', '120+0', '120+1'], 0) \
-									.replace(['180+0', '180+1', '180+2', '300+0', '300+2', '300+3'], 1)
-
-	#1-Monday, 2-Tuesday ... 7-Sunday
-	X[['day_of_week']] = X[['Date_Time']].applymap(lambda x: x.isoweekday())
-
-	# hour of game (UTC time)
-	X[['hour_of_game']] = X[['Date_Time']].applymap(lambda z: z.time().hour)
-
-	#how many games i played and win last 7 days
-	dated_X = X.sort_values(by='Date_Time').set_index('date_')
-	last_7d_stats = dated_X[['my_result']].resample('d').count().rolling(8, min_periods=1).sum() - dated_X[['my_result']].resample('d').count()
-	my_wins = dated_X[['my_result']].loc[ dated_X['my_result'] == 1]
-	last_7d_wins = my_wins.resample('d').count().rolling(8, min_periods=1).sum() - my_wins.resample('d').count()
-	last_7d_stats = last_7d_stats.merge(last_7d_wins, left_index=True, right_index=True, how='inner')
-	last_7d_stats = last_7d_stats.reset_index().rename(columns={'my_result_x': 'last_7days_games',
-																'my_result_y': 'last_7days_wins'})
-	try:
-		last_7d_stats['last_7days_win_rate'] = last_7d_stats.last_7days_wins / last_7d_stats.last_7days_games
-	except ZeroDivisionError:
-		last_7d_stats['last_7days_win_rate'] = 0
-	last_7d_stats['last_7days_win_rate'] = last_7d_stats['last_7days_win_rate'].fillna(0).round(3)
-
-	X = pd.merge(left=X, right=last_7d_stats, on='date_', how='inner')
-
-	#how many games i played that day before
-	dd = X[['Date_Time', 'date_', 'my_result']]
-	list_count_today_games, list_count_today_wins= [], []
-	for i, row in dd.iterrows():
-		#print(row)
-		subseries_games = dd[['Date_Time']].loc[(dd['Date_Time'] < row[0]) & (dd['date_'] == row[1])]
-		subseries_wins = dd[['Date_Time']].loc[(dd['Date_Time'] < row[0]) & (dd['date_'] == row[1]) & dd['my_result'] == 1]
-		list_count_today_games.append(subseries_games.shape[0])
-		list_count_today_wins.append(subseries_wins.shape[0])
-	df_count_today = pd.DataFrame(data=np.array((list_count_today_games, list_count_today_wins)).T,
-								 columns=['count_today_games', 'win_today_games'])
-	try:
-		df_count_today['win_rate_today_games'] = df_count_today.win_today_games / df_count_today.count_today_games
-	except ZeroDivisionError:
-		df_count_today['win_rate_today_games'] = 0
-	df_count_today['win_rate_today_games'] = df_count_today['win_rate_today_games'].fillna(0).round(3)
-	X = pd.merge(left=X, right=df_count_today, left_index=True, right_index=True, how='inner')
-
-	#my_rating (my current ELO rating)
-	X['my_rating'] = df['WhiteElo'].where(df['White'] == 'shahmatpatblog', df['BlackElo']).astype('int32')
-
-	#my stats for this beginning (number of games in this ECO, how many wins i have in this ECO)
-	X = X.merge(statistics_eco(df)[['ECO_games', 'ECO_win_rate']], left_index=True, right_index=True, how='inner')
-	return X[:df_test.shape[0]] if for_test else X
-
-def create_my_result(df):
-	'''
-	create dataframe with my_color and my_result features
-	'''
-	target = pd.DataFrame()
-	#вначале создаю столбец каким цветом я играю
-	target['my_color'] = df.White.replace('shahmatpatblog', 1)
-	target.loc[target.my_color != 1, 'my_color'] = 0
-	target['my_color'] = target['my_color'].astype('int32')
-
-	target['result'] = df['Result'].replace('1-0', 1).replace('0-1', 0).replace('1/2-1/2', 0.5)
-
-	target['my_result'] = target.my_color + target.result
-	target.my_result = target.my_result.replace([0, 2], 'win').replace(1, 'not_win').replace([0.5, 1.5], 'not_win')
-	target.my_result = target.my_result.replace('win', 1).replace('not_win', 0)
-	target['my_result'] = target['my_result'].astype('int32')
-	return target.drop(columns=['result'])
-
-def plot_auc_roc(y_true, y_pr):
-	fpr, tpr, thresholds = roc_curve(y_true, y_pr[:,1])
-	roc_auc= auc(fpr, tpr)
-	plt.figure(figsize=(8, 6))
-	lw = 5
-	plt.plot(fpr, tpr, color='darkorange',
-			 lw=lw, label='ROC curve (area = %0.3f)' % roc_auc)
-	plt.plot([0, 1], [0, 1], color='navy', linestyle='--')
-	plt.xlim([0.0, 1.0])
-	plt.ylim([0.0, 1.05])
-	plt.xlabel('False Positive Rate')
-	plt.ylabel('True Positive Rate')
-	plt.title('Receiver operating characteristic example')
-	plt.legend(loc="lower right")
-	plt.show()
-
-def fit_model(X, y, clf, GridSearch_params):
-	grid_search_cv = GridSearchCV(clf, GridSearch_params, cv=3, n_jobs=-1, verbose=3)
-	grid_search_cv.fit(X, y)
-	print('Найден лучший классификатор с параметрами {0} и score = {1}'.format(grid_search_cv.best_params_, grid_search_cv.best_score_))
-	return grid_search_cv.best_estimator_
-
-
-'''
-def statistics_eco(df):
-	stats = pd.DataFrame()
-	#Date_Time
-	stats['Date_Time'] = df['UTCDate'] + ' ' + df['UTCTime']
-	stats[['Date_Time']] = stats[['Date_Time']].applymap(lambda x: datetime.datetime.strptime(x, '%Y.%m.%d %H:%M:%S'))
-	#my_result
-	stats['my_result'] = create_series_y(df)
-	#my_color
-	stats['my_color'] = df.White.replace('shahmatpatblog', 1)
-	stats.loc[stats.my_color != 1, 'my_color'] = 0
-	stats['my_color'] = stats['my_color'].astype('int64')
-	#ECO
-	stats['ECO'] = df['ECO']
-	#collecting stats before current game - how many games were, how many games i won (for that ECO)
-	white_games, black_games, white_wins, black_wins = [], [], [], []
-	for i, row in stats.iterrows():
-		#print(row)
-		stats_before_this = stats.loc[(stats['Date_Time'] < row[0]) & (stats['ECO'] == row[3])]
-		white_games.append(stats_before_this.loc[stats_before_this['my_color'] == 1, 'my_result'].count())
-		white_wins.append(stats_before_this.loc[stats_before_this['my_color'] == 1, 'my_result'].sum())
-		black_games.append(stats_before_this.loc[stats_before_this['my_color'] == 0, 'my_result'].count())
-		black_wins.append(stats_before_this.loc[stats_before_this['my_color'] == 0, 'my_result'].sum())
-		#white_games.append(stats_before_this.loc[stats_before_this['color'] == 1, 'my_result'])
-		#print(stats_before_this)
-	w_b = pd.DataFrame(data=np.array((white_games, white_wins, black_games, black_wins)).T,
-					   columns=['white_games', 'white_wins', 'black_games', 'black_wins'])
-	w_b = stats[['ECO', 'my_color']].merge(w_b, left_index=True, right_index=True, how='inner')
-	#white_win_rate
-	try:
-		w_b['white_win_rate'] =  w_b['white_wins'] / w_b['white_games']
-	except ZeroDivisionError:
-		w_b['white_win_rate'] = 0
-	w_b['white_win_rate'] = w_b['white_win_rate'].fillna(0)
-	#black_win_rate
-	try:
-		w_b['black_win_rate'] =  w_b['black_wins'] / w_b['black_games']
-	except ZeroDivisionError:
-		w_b['black_win_rate'] = 0
-	w_b['black_win_rate'] = w_b['black_win_rate'].fillna(0)
-	#creating columns of games number, win_rate according to color of the game
-	w_b['ECO_games'] = w_b['white_games'].where(w_b['my_color'] == 1, w_b['black_games']).round(3)
-	w_b['ECO_win_rate'] = w_b['white_win_rate'].where(w_b['my_color'] == 1, w_b['black_win_rate']).round(3)
-	return w_b
-'''

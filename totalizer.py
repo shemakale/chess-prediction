@@ -113,9 +113,7 @@ class Totalizer_window(tk.Frame):
 def main ():
 	root = tk.Tk () #main screen
 	my_window = Totalizer_window(root)
-	#print(my_window.event_var)
 	my_window.mainloop()
-	#print(my_window.event_var)
 
 if __name__ == '__main__':
 	main()
