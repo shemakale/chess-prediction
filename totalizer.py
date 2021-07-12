@@ -1,6 +1,6 @@
-import tkinter as tk #Tk, canvas, CHORD, ARC, LAST, BOTH, X, Y, LEFT, PhotoImage, Label, Entry, Button, ttk, Frame
+import tkinter as tk
 import tkinter.ttk as ttk
-import func_totalizer as ft
+import make_prediction
 
 class Totalizer_window(tk.Frame):
 	"""Window with fields to fill and buttons to show predictions"""
@@ -14,7 +14,7 @@ class Totalizer_window(tk.Frame):
 		self.event_var = ''
 
 	def create_widgets(self):
-		#self.event_var = ''
+		""" Creating interface to input game information for prediction """
 		self.top_lbl = tk.Label(self, text="Введите данные партии", font=("Calibri", 14, "bold"))
 		self.top_lbl.grid(row=0, column=0)
 
@@ -85,12 +85,11 @@ class Totalizer_window(tk.Frame):
 
 
 	def get_prediction(self):
+		""" Get result of prediction: probability of my win in this game """
 		data_ = [self.event_cmbox.get(), self.white_entry.get(), self.black_entry.get(), self.year_box.get(),\
 				self.month_box.get(), self.day_box.get(), self.hour_box.get(), self.minute_box.get(),\
 				self.elo_white_entry.get(), self.elo_black_entry.get(), self.timecontrol_cmbox.get()]
-		#data_ = ['Обычная игра', 'shahmatpatblog', 'shahmatpatblo1', '2021', '04', '18', '02', '14', '2239', '2366', 'Блиц']
-		#self.output_field.configure(text=data_)
-		prediction = ft.predict_result(data_)
+		prediction = make_prediction.predict_result(data_)
 		self.output_field.configure(text=self.print_prediction(prediction))
 
 
@@ -107,13 +106,14 @@ class Totalizer_window(tk.Frame):
 		else:
 			phrase = 'Ну, если тут не выигрывать, \nто я тогда не знаю где...'
 		return '='*25 + '\nВероятность твоей победы:\n{} %\n\n{}\n'.format(pred, phrase) + '='*25
-	
 
 
 def main ():
+	""" Open a window """
 	root = tk.Tk () #main screen
 	my_window = Totalizer_window(root)
 	my_window.mainloop()
+
 
 if __name__ == '__main__':
 	main()
