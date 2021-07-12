@@ -1,6 +1,8 @@
+# This file contains functions which work with input information about game to predict
 import pandas as pd
 import numpy as np
 import datetime
+from create_df import TrainingDataFrame
 
 
 def check_input_data(input_data):
@@ -43,6 +45,7 @@ def get_date_time(input_data):
 		+ ':'.join((input_data[6], input_data[7], '00'))
 	return datetime.datetime.strptime(game_date_time, '%Y-%m-%d %H:%M:%S').date()
 
+
 def get_color(input_data):
 	""" Get my color in this game. 1 - WHITE, 0 - BLACK """
 	if 'shahmatpatblog' == input_data[1]:
@@ -50,17 +53,20 @@ def get_color(input_data):
 	elif 'shahmatpatblog' == input_data[2]:
 		return 0
 
+
 def get_event(input_data):
 	if 'Обычная игра' == input_data[0]:
 		return 0
 	elif 'Турнирная игра' == input_data[0]:
 		return 1
 
+
 def get_rating(input_data):
 	if get_color(input_data):
 		return int(input_data[8])
 	else:
 		return int(input_data[9])
+
 
 def get_rating_diff(input_data):
 	diff = int(input_data[8]) - int(input_data[9])
@@ -69,11 +75,13 @@ def get_rating_diff(input_data):
 	else:
 		return -diff
 
+
 def get_time_control(input_data):
 	if 'Блиц' == input_data[10]:
 		return 1
 	elif 'Пуля' == input_data[10]:
 		return 0
+
 
 def get_its_afternoon(input_data):
 	if int(input_data[6]) >= 8 and int(input_data[6]) <= 11:
@@ -81,11 +89,13 @@ def get_its_afternoon(input_data):
 	else:
 		return 0
 
+
 def get_its_evening(input_data):
 	if int(input_data[6]) >= 12 and int(input_data[6]) <= 15:
 		return 1
 	else:
 		return 0
+
 
 def get_its_morning(input_data):
 	if int(input_data[6]) >= 0 and int(input_data[6]) <= 7:
