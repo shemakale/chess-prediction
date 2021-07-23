@@ -1,4 +1,4 @@
-# This file contains functions to make a prediction for game the information you entered in GUI
+# This file contains functions to make a prediction for game the information about that you entered in GUI
 import numpy as np
 import pickle
 import get_features_for_prediction as get_f

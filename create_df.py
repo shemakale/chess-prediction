@@ -1,14 +1,11 @@
-# In this file a dataframe is creating from chessbase file (.PGN format).
-# Training dataframe is saving as .CSV file. Scaler is saving as .PKL file
-# They are used for prediction of the game from GUI 
+# In this file a dataframe is creating from chessbase file (PGN format).
+# Training dataframe is saving as .CSV file. Scaler is saving as PKL file
+# They are used to make features for the game from GUI 
 import re
 import pandas as pd
 import numpy as np
 import datetime
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
-from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score
 import pickle
 
 
@@ -33,8 +30,6 @@ class TrainingDataFrame:
 			for col_name in col_names:
 				pattern = r'(?<=\[' + col_name +  r' \")[^\"]+'
 				data_dict[col_name] = re.findall(pattern, text_file)
-		#raw_data = pd.DataFrame(data=data_dict)
-		#raw_data.to_csv('raw_df.csv')
 		return pd.DataFrame(data=data_dict)
 
 
@@ -211,6 +206,7 @@ class TrainingDataFrame:
 		full_df.to_csv("all_games_df.csv") #saving dataframe as .CSV
 		full_df.drop(columns=['Date_Time', 'date_'], inplace=True)
 		return full_df
+
 
 if __name__ == '__main__':
 	data = TrainingDataFrame('lichess_shahmatpatblog_2021-04-20.pgn')

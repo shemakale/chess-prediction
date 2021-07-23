@@ -2,7 +2,6 @@
 import pandas as pd
 import numpy as np
 import datetime
-from create_df import TrainingDataFrame
 
 
 def check_input_data(input_data):
@@ -55,6 +54,7 @@ def get_color(input_data):
 
 
 def get_event(input_data):
+	""" Get type of this game (usual or tournament) """
 	if 'Обычная игра' == input_data[0]:
 		return 0
 	elif 'Турнирная игра' == input_data[0]:
@@ -62,6 +62,7 @@ def get_event(input_data):
 
 
 def get_rating(input_data):
+	""" Get my current rating """
 	if get_color(input_data):
 		return int(input_data[8])
 	else:
@@ -69,6 +70,7 @@ def get_rating(input_data):
 
 
 def get_rating_diff(input_data):
+	""" Get rating difference between me and opponent """
 	diff = int(input_data[8]) - int(input_data[9])
 	if get_color(input_data):
 		return diff
@@ -77,6 +79,7 @@ def get_rating_diff(input_data):
 
 
 def get_time_control(input_data):
+	""" Get type control of this game (blitz or bullet) """
 	if 'Блиц' == input_data[10]:
 		return 1
 	elif 'Пуля' == input_data[10]:
@@ -84,6 +87,7 @@ def get_time_control(input_data):
 
 
 def get_its_afternoon(input_data):
+	""" Is this game played in the afternoon hours (since 8 to 12 UTC)? """
 	if int(input_data[6]) >= 8 and int(input_data[6]) <= 11:
 		return 1
 	else:
@@ -91,6 +95,7 @@ def get_its_afternoon(input_data):
 
 
 def get_its_evening(input_data):
+	""" Is this game played in the evening hours (since 12 to 16 UTC)? """
 	if int(input_data[6]) >= 12 and int(input_data[6]) <= 15:
 		return 1
 	else:
@@ -98,6 +103,7 @@ def get_its_evening(input_data):
 
 
 def get_its_morning(input_data):
+	""" Is this game played in the morning hours (since 0 to 8 UTC)? """
 	if int(input_data[6]) >= 0 and int(input_data[6]) <= 7:
 		return 1
 	else:
@@ -105,6 +111,7 @@ def get_its_morning(input_data):
 
 
 def get_its_night(input_data):
+	""" Is this game played in the night hours (since 16 to 24)? """
 	if int(input_data[6]) >= 16 and int(input_data[6]) <= 24:
 		return 1
 	else:
@@ -112,6 +119,7 @@ def get_its_night(input_data):
 
 
 def get_its_weekend(input_data):
+	""" Is this weekend? """
 	if get_date_time(input_data).isoweekday() in (6, 7):
 		return 1
 	else:
@@ -119,14 +127,17 @@ def get_its_weekend(input_data):
 
 
 def get_last_7days_games(df_7days):
+	""" Get how many games i played last 7 days """
 	return df_7days.my_result.count()
 
 
 def get_last_7days_wins(df_7days):
+	""" Get how many games i won last 7 days """
 	return df_7days.my_result.sum()
 
 
 def get_last_7days_win_ratio(df_7days):
+	""" Get ratio between amount of wins and overall amount of games last 7 days """
 	if df_7days.my_result.sum():
 		answer = np.divide(get_last_7days_wins(df_7days), get_last_7days_games(df_7days))
 		return round(answer, 3)
@@ -135,14 +146,17 @@ def get_last_7days_win_ratio(df_7days):
 
 
 def get_today_games(today_games):
+	""" Get how many games i played this day before """
 	return today_games.my_result.count()
 
 
 def get_today_wins(today_games):
+	""" Get how many games i won this day before """
 	return today_games.my_result.sum()
 
 
 def get_today_win_ratio(today_games):
+	""" Get ratio between amount of wins and overall amount of games this day before """
 	if today_games.my_result.sum():
 		answer = np.divide(get_today_wins(today_games), get_today_games(today_games))
 		return round(answer, 3)

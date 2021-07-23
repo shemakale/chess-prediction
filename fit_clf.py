@@ -56,6 +56,3 @@ if __name__ == '__main__':
 	print(clf.fit_clf())
 	print(clf.c_parameter)
 	print(clf.prediction_accuracy)
-	#print(clf.__dict__)
-
-
