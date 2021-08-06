@@ -1,0 +1,2 @@
+shahmatpatblog
+C:/python/chess_program/base/lichess_shahmatpatblog_2021-04-20.pgn
