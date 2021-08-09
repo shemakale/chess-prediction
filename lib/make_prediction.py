@@ -39,13 +39,11 @@ def get_predicted_results(clf, game):
 
 
 def predict_result(game_for_pred):
-	''' Main function that makes all steps to predict result of the game
+	''' Main function that makes all steps to predict result of the game. To realize that, we need saved
+	estimator (clf.pkl), saved scaler (scaler.pkl) 
 	1 - checking input data, 2 - scaling features, 3 - concatenating scaled and boolean features to one array,
 	4 - extracting estimator keeping in file, 5 - predicting probability of my win by estimator
 	Probability of my win in percents will be returned '''
-	path_to_base = get_names()[1]
-	chessbase = TrainingDataFrame(path_to_base)
-	FittedLogit(chessbase.create_training_df())
 	clf = extract_clf_from_file(r'../work/clf.pkl')
 	get_f.check_input_data(game_for_pred)
 	scaled_X = scale_features(get_f.make_numeric_features(game_for_pred), open_scaler(r'../work/scaler.pkl'))

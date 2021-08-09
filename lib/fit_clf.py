@@ -18,7 +18,7 @@ class FittedLogit:
 
 
 	def split_X_y(self, df):
-		''' Divides dataframe into X (features) and y (target variable)'''
+		''' Divides dataframe into X (features) and y (target variable) '''
 		X = df.drop(columns='my_result')
 		y = df['my_result']
 		return X, y
@@ -43,7 +43,7 @@ class FittedLogit:
 
 
 	def fit_clf(self):
-		''' Fits best estimator with found C value and saves it to PKL file'''
+		''' Fits best estimator with found C value and saves it to PKL file '''
 		clf = LogisticRegression(C=self.c_parameter, random_state=28)
 		clf.fit(self.X, self.y)
 		with open(r'../work/clf.pkl', 'wb') as f:

@@ -11,14 +11,16 @@ import pickle
 
 def get_names():
 	''' Parcing file with nick_name of user and path to chessbase.
-	Returns tuple where 0th element - nickname of user (str), 1st element - path to chessbase (str)'''
+	Returns tuple where 0th element - nickname of user (str), 1st element - path to chessbase (str) '''
 	with open(r'../base/user_base_info.txt', 'r', encoding='utf-8') as f:
 		text = f.readlines()
 	nickname = re.match('.+(?=\\n)', text[0]).group()
 	path_to_base = text[1]
 	return nickname, path_to_base
 
+
 class TrainingDataFrame:
+	""" Dataframe that constructs from .PGN chessbase file. To create training dataframe use create_training_df() method """
 	time_controls = {'bullet': ['60+0', '60+1', '120+0', '120+1'],
 					'blitz': ['180+0', '180+1', '180+2', '300+0', '300+2', '300+3']}
 	non_tournament_events = ['Rated Blitz game', 'Rated Bullet game', 'Casual Blitz game']

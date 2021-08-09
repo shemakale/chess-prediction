@@ -3,19 +3,26 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as fd
-from PIL import ImageTk, Image
 import make_prediction
-import get_features_for_prediction as get_f
 from create_df import TrainingDataFrame, get_names
-#import os
+from fit_clf import FittedLogit
+
+
+def fit_estimator():
+	""" Function for button Обучить модель. It takes path name from user_base_info.txt (get_names()),
+	then creates training dataframe (TrainingDataFrame class), and finally fits estimator (FittedLogit class) """
+	path_to_base = get_names()[1]
+	chessbase = TrainingDataFrame(path_to_base)
+	FittedLogit(chessbase.create_training_df())
+	print('Модель обучена и готова к предсказанию!')
 
 
 class TopDescription(tk.Frame):
-	"""Frame with description on the top of the window"""
+	""" Frame with description on the top of the window """
 	def __init__(self, parent):
 		tk.Frame.__init__(self, parent)
 		self.parent = parent
-		self.parent.title ("Predictor of chess results")
+		self.parent.title ("Chess Nostradamus")
 		self.parent.geometry('500x100')
 		self.pack()
 		self.lbl_descrition()
@@ -27,49 +34,61 @@ class TopDescription(tk.Frame):
 
 
 class UserData(tk.Frame):
-	"""docstring for ClassName"""
+	""" Frame where user enters his name, chooses chessbase file and fits classificator """
 	def __init__(self, parent):
 		tk.Frame.__init__(self, parent)
 		self.parent = parent
-		self.parent.geometry('500x300')
+		self.parent.geometry('500x200')
 		self.pack()
 		self.lbl_enter_name()
 		self.entry_name()
 		self.but_choose_base()
+		self.but_fit_clf()
 
 
 	def lbl_enter_name(self):
-		self.enter_name_lbl = tk.Label(self, text="Введите своё имя (никнейм): ", justify='left')
-		self.enter_name_lbl.pack(side='left')
+		self.enter_name_lbl = tk.Label(self, text="ВВЕДИТЕ СВОЁ ИМЯ (НИКНЕЙМ): ", justify='left')
+		self.enter_name_lbl.grid(row=0, column=0, sticky='W')
 	
 
 	def entry_name(self):
-		self.enter_name_entry = tk.Entry(self, width=20)
-		self.enter_name_entry.pack()
+		self.enter_name_entry = tk.Entry(self, width=24)
+		self.enter_name_entry.grid(row=0, column=1, sticky='W', padx=10)
+		self.enter_name_entry.insert(0, 'shahmatpatblog')
 
 
 	def but_choose_base(self):
-		self.choose_file_btn = tk.Button(self, text="Выберите файл базы данных (PGN)", command=self.choose_file, width=30)
-		self.choose_file_btn.pack(side='left')
+		self.choose_file_btn = tk.Button(self, text="Выберите файл базы данных (PGN)", command=self.choose_file, width=28)
+		self.choose_file_btn.grid(row=1, column=0)
+
+
+	def but_fit_clf(self):
+		self.fit_clf_btn = tk.Button(self, text="Обучить модель", font=("Calibri", 10, "bold"), command=fit_estimator, width=20)
+		self.fit_clf_btn.grid(row=1, column=1, padx=10)
+
+
+	def choose_file(self):
+		filetypes = (("База данных партий", "*.pgn"), ("Любой", "*"))
+		filename = fd.askopenfilename(title="Открыть файл", initialdir="base/",
+										filetypes=filetypes)
+		if filename:
+			with open(r'../base/user_base_info.txt', 'w') as f:
+				f.write('{}\n{}'.format(self.enter_name_entry.get(), filename))
+
+
+class GameData(tk.Frame):
+	""" Frame where user enters data of the game to predict and prediction is shown """
+	def __init__(self, parent):
+		tk.Frame.__init__(self, parent)
+		self.parent = parent
+		self.parent.geometry('500x600')
+		self.pack(side='left')
+		self.create_widgets()
 
 
 	def create_widgets(self):
 		""" Creating interface to input game information for prediction """
-
-		#img = Image.open("cat.jpeg")
-		#img = img.resize((100, 100), Image.ANTIALIAS)
-		#img = ImageTk.PhotoImage(img)
-		#self.avatar_img = tk.Label(self, image=img, compound='top', width=50, height=50)
-		#self.avatar_img.grid(row=0, column=1)
-		self.enter_name_lbl = tk.Label(self, text="Введите своё имя (никнейм): ")
-		self.enter_name_lbl.grid(row=1, column=0, sticky='W')
-		self.enter_name_entry = tk.Entry(self, width=20)
-		self.enter_name_entry.grid(row=1, column=1, sticky='W')
-		self.enter_name_entry.insert(0, 'shahmatpatblog')
-		self.choose_file_btn = tk.Button(self, text="Выберите файл базы данных (PGN)", command=self.choose_file, width=30)
-		self.choose_file_btn.grid(row=2, column=0, sticky='W')
-
-		self.enter_info_lbl = tk.Label(self, text="Введите данные партии:", font=("Calibri", 12, "bold"))
+		self.enter_info_lbl = tk.Label(self, text="ПОСЛЕ ТОГО, КАК МОДЕЛЬ ОБУЧИТСЯ,\nВВЕДИТЕ ДАННЫЕ ПАРТИИ:", justify='left')
 		self.enter_info_lbl.grid(row=3, column=0, pady=1, sticky='W')
 
 		self.event_lbl = tk.Label(self, text="Выберите тип события партии: ")
@@ -138,15 +157,6 @@ class UserData(tk.Frame):
 		self.output_field.grid(row=14, column=0, sticky='W')
 
 
-	def choose_file(self):
-		filetypes = (("База данных партий", "*.pgn"), ("Любой", "*"))
-		filename = fd.askopenfilename(title="Открыть файл", initialdir="base/",
-										filetypes=filetypes)
-		if filename:
-			with open(r'base/user_base_info.txt', 'w') as f:
-				f.write('{}\n{}'.format(self.enter_name_entry.get(), filename))
-
-
 	def get_prediction(self):
 		""" Get result of prediction: probability of my win in this game """
 		data_ = [self.event_cmbox.get(), self.white_entry.get(), self.black_entry.get(), self.year_box.get(),\
@@ -154,10 +164,11 @@ class UserData(tk.Frame):
 				self.elo_white_entry.get(), self.elo_black_entry.get(), self.timecontrol_cmbox.get()]
 		prediction = make_prediction.predict_result(data_)
 		self.output_field.configure(text=self.print_prediction(prediction))
+		print('Предсказание получено')
 
 
 	def print_prediction(self, pred):
-		''' pred - predicted probability of win class. this function makes formatting of the prediction result '''
+		''' This function makes formatting of the prediction result. pred - predicted probability of win class. '''
 		if pred < 20:
 			phrase = 'Прости, но я бы \nне поставил на тебя!..'
 		elif pred >= 20 and pred < 40:
@@ -176,6 +187,7 @@ def main ():
 	root = tk.Tk () #main screen
 	description_label = TopDescription(root)
 	user_data = UserData(root)
+	game_data = GameData(root)
 	root.mainloop()
 
 

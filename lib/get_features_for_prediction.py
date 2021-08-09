@@ -167,7 +167,7 @@ def get_today_win_ratio(today_games):
 
 
 def make_boolean_features(input_data):
-	''' Calculate features for input data. Returns a list of features'''
+	''' Calculate features for input data. Returns a list of features '''
 	bool_features = []
 	bool_features.append(get_color(input_data))
 	bool_features.append(get_event(input_data))
@@ -183,7 +183,7 @@ def make_boolean_features(input_data):
 def make_numeric_features(input_data):
 	''' Calculate numeric features for input data. 
 	These features will be scaled in scale_features() function. 
-	Returns a numpy array of numeric features with shape (1, len(num_features))'''
+	Returns a numpy array of numeric features with shape (1, len(num_features)) '''
 	num_features = []
 	df_games = open_games_base()
 	df_7days = last_7days_statistics(df_games, input_data)
